@@ -1,9 +1,14 @@
 variable "region" {
-  description = "AWS region to deploy resources in"
-  type        = string
+  type    = string
+  default = "us-east-1"
+}
+
+variable "ami_id" {
+  type    = string
+  default = "ami-0c55b159cbfafe1f0" // Amazon Linux 2 in us-east-1
 }
 
 variable "instance_type" {
-  description = "EC2 instance type"
-  type        = string
+  type    = string
+  default = "t2.micro"
 }
