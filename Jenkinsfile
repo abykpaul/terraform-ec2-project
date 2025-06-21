@@ -3,8 +3,8 @@
 pipeline {
     agent any
 
-    environment {
-        AWS_DEFAULT_REGION = 'us-east-1'
+    parameters {
+        booleanParam(name: 'DESTROY', defaultValue: false, description: 'Set true to destroy infra')
     }
 
     stages {
@@ -16,10 +16,19 @@ pipeline {
             }
         }
 
-        stage('Terraform Apply') {
+        stage('Terraform Action') {
             steps {
                 script {
-                    terraformPipeline('dev')
+                    withCredentials([[
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-ecr-creds'
+                    ]]) {
+                        if (params.DESTROY) {
+                            bat "terraform -chdir=infra/dev destroy -var-file=dev.tfvars -auto-approve"
+                        } else {
+                            terraformPipeline('dev')
+                        }
+                    }
                 }
             }
         }
