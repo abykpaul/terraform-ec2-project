@@ -7,3 +7,6 @@ output "vpc_id" {
 output "sg_id" {
   value = aws_security_group.SG.id
 }
+output "instance_name" {
+  value = var.instance_name
+}
