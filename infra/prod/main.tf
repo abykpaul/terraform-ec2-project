@@ -12,7 +12,7 @@ resource "aws_vpc" "main" {
   cidr_block = var.vpc_cidr
 
   tags = {
-    Name = "My-vpc"
+    Name = "My-vpc-prod"
   }
 }
 resource "aws_subnet" "My_Sub" {
@@ -20,14 +20,14 @@ resource "aws_subnet" "My_Sub" {
   cidr_block = var.subnet_cidr
 
   tags = {
-    Name = "My-Subnet"
+    Name = "My-Subnet-prod"
   }
 }
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "My-IGW"
+    Name = "My-IGW-prod"
   }
 }
 resource "aws_route_table" "RT" {
