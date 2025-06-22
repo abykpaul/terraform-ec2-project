@@ -7,7 +7,7 @@ pipeline {
         stage('Read Config') {
             steps {
                 script {
-                    def jsonText = readFile('config.json')
+                    def jsonText = readFile('jenkins_terraform_json_pipeline/config.json')
                     def config = new JsonSlurper().parseText(jsonText)
 
                     echo "Environment: ${config.env}"
