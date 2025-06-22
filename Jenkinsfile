@@ -4,7 +4,7 @@ pipeline {
     agent any
 
     parameters {
-	    choice(name: 'ENVIRONMENT', choices: ['dev', 'prod'], description: 'Choose environment')
+	choice(name: 'ENVIRONMENT', choices: ['dev', 'prod'], description: 'Choose environment')
         booleanParam(name: 'DESTROY', defaultValue: false, description: 'Set true to destroy infra')
     }
 
