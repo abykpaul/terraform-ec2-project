@@ -1,0 +1,10 @@
+{
+  "env": "dev",
+  "region": "us-east-1",
+  "modules": ["vpc", "ec2", "rds"],
+  "vars": {
+    "instance_type": "t2.micro",
+    "key_name": "MyKey",
+    "owner": "jack"
+  }
+}

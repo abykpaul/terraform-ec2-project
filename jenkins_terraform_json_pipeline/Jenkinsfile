@@ -1,0 +1,40 @@
+import groovy.json.JsonSlurper
+
+pipeline {
+    agent any
+
+    stages {
+        stage('Read Config') {
+            steps {
+                script {
+                    def jsonText = readFile('config.json')
+                    def config = new JsonSlurper().parseText(jsonText)
+
+                    echo "Environment: ${config.env}"
+                    echo "Region: ${config.region}"
+
+                    echo "Modules to apply:"
+                    config.modules.each { mod ->
+                        echo "Module: ${mod}"
+                    }
+
+                    def tfFlags = ""
+                    config.vars.each { k, v ->
+                        tfFlags += "-var '${k}=${v}' "
+                    }
+
+                    echo "Terraform Flags: ${tfFlags}"
+
+                    config.modules.each { mod ->
+                        echo "Applying Terraform for module: ${mod}"
+                        sh """
+                            cd modules/${mod}
+                            terraform init
+                            terraform apply ${tfFlags} -auto-approve
+                        """
+                    }
+                }
+            }
+        }
+    }
+}
