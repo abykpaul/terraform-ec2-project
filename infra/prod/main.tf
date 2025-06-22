@@ -2,6 +2,7 @@ resource "aws_instance" "example" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
   vpc_security_group_ids = [aws_security_group.SG.id]
+  key_name               = var.key_name
 
   tags = {
     Name = "ExampleInstance"

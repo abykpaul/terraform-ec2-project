@@ -24,3 +24,6 @@ variable "subnet_cidr" {
 #variable "sg_id" {
 #  type = string
 #}
+variable "key_name" {
+  type = string
+}
