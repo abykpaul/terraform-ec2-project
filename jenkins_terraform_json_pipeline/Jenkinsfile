@@ -27,7 +27,7 @@ pipeline {
 
                     config.modules.each { mod ->
                         echo "Applying Terraform for module: ${mod}"
-                        sh """
+                        bat """
                             cd modules/${mod}
                             terraform init
                             terraform apply ${tfFlags} -auto-approve
