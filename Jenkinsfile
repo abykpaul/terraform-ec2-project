@@ -24,7 +24,7 @@ pipeline {
                         credentialsId: 'aws-ecr-creds'
                     ]]) {
                         if (params.DESTROY) {
-                            bat "terraform -chdir=infra/dev destroy -var-file=dev.tfvars -auto-approve"
+							destroyPipeline('dev')
                         } else {
                             terraformPipeline('dev')
                         }
