@@ -25,7 +25,7 @@ pipeline {
                         credentialsId: 'aws-ecr-creds'
                     ]]) {
                         if (params.DESTROY) {
-							destroyPipeline(params.ENVIRONMENT)
+			    destroyPipeline(params.ENVIRONMENT)
                         } else {
                             terraformPipeline(params.ENVIRONMENT)
                         }
