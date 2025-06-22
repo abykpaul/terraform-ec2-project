@@ -4,31 +4,22 @@ pipeline {
     agent any
 
     stages {
-        stage('Read Config') {
+        stage('Parse & Apply Terraform') {
             steps {
+                checkout scm
                 script {
-                    def jsonText = readFile('jenkins_terraform_json_pipeline/config.json')
+                    def jsonText = readFile('config.json')
                     def config = new JsonSlurper().parseText(jsonText)
-
-                    echo "Environment: ${config.env}"
-                    echo "Region: ${config.region}"
-
-                    echo "Modules to apply:"
-                    config.modules.each { mod ->
-                        echo "Module: ${mod}"
-                    }
 
                     def tfFlags = ""
                     config.vars.each { k, v ->
                         tfFlags += "-var '${k}=${v}' "
                     }
 
-                    echo "Terraform Flags: ${tfFlags}"
-
                     config.modules.each { mod ->
-                        echo "Applying Terraform for module: ${mod}"
+                        echo "Terraform apply for module: ${mod}"
                         bat """
-                            cd modules/${mod}
+                            cd modules\\${mod}
                             terraform init
                             terraform apply ${tfFlags} -auto-approve
                         """
