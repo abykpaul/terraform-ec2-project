@@ -1,10 +1,10 @@
 {
   "env": "dev",
-  "region": "us-east-1",
+  "region": "ap-south-1",
   "modules": ["vpc", "ec2", "rds"],
   "vars": {
     "instance_type": "t2.micro",
-    "key_name": "MyKey",
+    "key_name": "My-Devops-Key",
     "owner": "jack"
   }
 }
