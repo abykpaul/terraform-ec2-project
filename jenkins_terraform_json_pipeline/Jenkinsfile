@@ -19,7 +19,7 @@ pipeline {
                     config.modules.each { mod ->
                         echo "Terraform apply for module: ${mod}"
                         bat """
-                            cd modules\\${mod}
+                            cd jenkins_terraform_json_pipeline\\modules\\${mod}
                             terraform init
                             terraform apply ${tfFlags} -auto-approve
                         """
