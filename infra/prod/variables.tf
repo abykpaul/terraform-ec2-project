@@ -30,3 +30,6 @@ variable "key_name" {
 variable "instance_name" {
   type = string
 }
+variable "sg_name" {
+  type = string
+}

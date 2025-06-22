@@ -43,7 +43,7 @@ resource "aws_route_table_association" "RTA" {
   route_table_id = aws_route_table.RT.id
 }
 resource "aws_security_group" "SG" {
-  name = "My-sed-Terra"
+  name = "My-sed-Terra-${var.sg_name}"
 
   ingress {
     from_port   = "22"
