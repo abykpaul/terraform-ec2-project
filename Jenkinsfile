@@ -4,6 +4,7 @@ pipeline {
     agent any
 
     parameters {
+	    choice(name: 'ENVIRONMENT', choices: ['dev', 'prod'], description: 'Choose environment')
         booleanParam(name: 'DESTROY', defaultValue: false, description: 'Set true to destroy infra')
     }
 
@@ -24,9 +25,9 @@ pipeline {
                         credentialsId: 'aws-ecr-creds'
                     ]]) {
                         if (params.DESTROY) {
-							destroyPipeline('dev')
+							destroyPipeline(params.ENVIRONMENT)
                         } else {
-                            terraformPipeline('dev')
+                            terraformPipeline(params.ENVIRONMENT)
                         }
                     }
                 }
