@@ -4,21 +4,23 @@ pipeline {
     agent any
 
     stages {
-        stage('Deploy Modules') {
+        stage('Read Config and Deploy') {
             steps {
                 script {
-                    // ✅ Read & extract only values; DO NOT keep LazyMap outside
-                    def configText = readFile('jenkins_terraform_json_pipeline/config.json')
-                    def config = new JsonSlurper().parseText(configText)
+                    def configRaw = readFile('jenkins_terraform_json_pipeline/config.json')
+                    def jsonObj = new JsonSlurper().parseText(configRaw)
 
-                    def modules = config.modules
-                    def instanceType = config.instance_type.toString()
-                    def keyName = config.key_name.toString()
-                    def owner = config.owner.toString()
+                    // ✅ Extract values immediately
+                    def modules = jsonObj.modules.collect { it.toString() }
+                    def instanceType = jsonObj.instance_type.toString()
+                    def keyName = jsonObj.key_name.toString()
+                    def owner = jsonObj.owner.toString()
+
+                    // ❗ Do NOT use `jsonObj` after this point
 
                     modules.each { moduleName ->
-                        echo "🔧 Deploying Module: ${moduleName}"
                         def modulePath = "jenkins_terraform_json_pipeline/modules/${moduleName}"
+                        echo "🔧 Processing module: ${moduleName}"
 
                         dir(modulePath) {
                             catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
@@ -40,7 +42,7 @@ pipeline {
 
     post {
         always {
-            echo "📦 Pipeline completed"
+            echo "✅ Pipeline Finished"
         }
     }
 }
