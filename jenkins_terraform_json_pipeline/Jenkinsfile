@@ -1,42 +1,21 @@
-import groovy.json.JsonSlurper
-
 pipeline {
     agent any
 
     stages {
-        stage('Terraform Loop Apply') {
+        stage('Read JSON') {
             steps {
                 script {
-                    // ✅ Step 1: Parse JSON once
-                    def json = new JsonSlurper().parseText(readFile('jenkins_terraform_json_pipeline/config.json'))
+                    // ❌ Don't do this:
+                    // def parser = new JsonSlurper()
+                    // def json = parser.parseText(...)
 
-                    // ✅ Step 2: Extract ONLY serializable variables
-                    def modules = json.modules.collect { it.toString() }              // List<String>
-                    def instance_type = json.instance_type.toString()
-                    def key_name = json.key_name.toString()
-                    def owner = json.owner.toString()
+                    // ✅ Do this:
+                    def json = new groovy.json.JsonSlurper().parseText(readFile('config.json'))
 
-                    // ✅ Step 3: Loop over module names (Strings only)
-                    for (String module : modules) {
-                        def path = "jenkins_terraform_json_pipeline/modules/${module}"
-                        echo "🚀 Running Terraform for module: ${module}"
+                    def region = json.region.toString()
+                    def env = json.env.toString()
 
-                        // Set terraform vars as environment strings
-                        def tfVars = [
-                            "TF_VAR_instance_type=${instance_type}",
-                            "TF_VAR_key_name=${key_name}",
-                            "TF_VAR_owner=${owner}"
-                        ]
-
-                        dir(path) {
-                            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                                withEnv(tfVars) {
-                                    bat "terraform init"
-                                    bat "terraform apply -auto-approve"
-                                }
-                            }
-                        }
-                    }
+                    echo "✅ Region: ${region}, Env: ${env}"
                 }
             }
         }
