@@ -1,21 +1,64 @@
 pipeline {
     agent any
 
+    environment {
+        ENV         = ''
+        REGION      = ''
+        INSTANCE    = ''
+        KEY_NAME    = ''
+        OWNER       = ''
+    }
+
     stages {
-        stage('Read JSON') {
+        stage('Read and Parse JSON') {
             steps {
                 script {
-                    // ❌ Don't do this:
-                    // def parser = new JsonSlurper()
-                    // def json = parser.parseText(...)
+                    // Read and parse the config.json
+                    def jsonText = readFile('config.json')
+                    def config = new groovy.json.JsonSlurper().parseText(jsonText)
 
-                    // ✅ Do this:
-                    def json = new groovy.json.JsonSlurper().parseText(readFile('config.json'))
+                    // Assign top-level values to env vars
+                    env.ENV      = config.env
+                    env.REGION   = config.region
+                    env.INSTANCE = config.vars.instance_type
+                    env.KEY_NAME = config.vars.key_name
+                    env.OWNER    = config.vars.owner
 
-                    def region = json.region.toString()
-                    def env = json.env.toString()
+                    // Store modules array in a local variable (cannot persist across stages)
+                    modulesList = config.modules
 
-                    echo "✅ Region: ${region}, Env: ${env}"
+                    // Print values
+                    echo "🔍 ENV      : ${env.ENV}"
+                    echo "🌍 REGION   : ${env.REGION}"
+                    echo "📦 INSTANCE : ${env.INSTANCE}"
+                    echo "🔑 KEY_NAME : ${env.KEY_NAME}"
+                    echo "👤 OWNER    : ${env.OWNER}"
+                    echo "📁 MODULES  : ${modulesList}"
+                }
+            }
+        }
+
+        stage('Process Modules') {
+            steps {
+                script {
+                    // Re-read JSON to access modules array in this stage
+                    def modules = new groovy.json.JsonSlurper().parseText(readFile('config.json')).modules
+
+                    echo "🔁 Looping through modules..."
+                    for (m in modules) {
+                        echo "✅ Running Terraform for module: ${m}"
+                        // Here you could do:
+                        // sh "terraform apply -var-file=configs/${m}-${env.ENV}.tfvars"
+                    }
+                }
+            }
+        }
+
+        stage('Run Deployment') {
+            steps {
+                script {
+                    echo "🚀 Deploying infrastructure in ${env.REGION} with instance type ${env.INSTANCE}"
+                    // Example: sh "terraform apply -var region=${env.REGION} -var instance_type=${env.INSTANCE}"
                 }
             }
         }
