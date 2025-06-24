@@ -10,55 +10,72 @@ pipeline {
     }
 
     stages {
-        stage('Read and Parse JSON') {
+        stage('Read JSON Config') {
             steps {
                 script {
-                    // Read and parse the config.json
-                    def jsonText = readFile('config.json')
-                    def config = new groovy.json.JsonSlurper().parseText(jsonText)
+                    def json = readFile('config.json')
+                    def config = new groovy.json.JsonSlurper().parseText(json)
 
-                    // Assign top-level values to env vars
+                    // Export values as environment variables
                     env.ENV      = config.env
                     env.REGION   = config.region
                     env.INSTANCE = config.vars.instance_type
                     env.KEY_NAME = config.vars.key_name
                     env.OWNER    = config.vars.owner
 
-                    // Store modules array in a local variable (cannot persist across stages)
+                    // Modules list for next stage (store in global scope variable)
                     modulesList = config.modules
-
-                    // Print values
-                    echo "🔍 ENV      : ${env.ENV}"
-                    echo "🌍 REGION   : ${env.REGION}"
-                    echo "📦 INSTANCE : ${env.INSTANCE}"
-                    echo "🔑 KEY_NAME : ${env.KEY_NAME}"
-                    echo "👤 OWNER    : ${env.OWNER}"
-                    echo "📁 MODULES  : ${modulesList}"
                 }
             }
         }
 
-        stage('Process Modules') {
+        stage('Terraform Init') {
             steps {
                 script {
-                    // Re-read JSON to access modules array in this stage
                     def modules = new groovy.json.JsonSlurper().parseText(readFile('config.json')).modules
-
-                    echo "🔁 Looping through modules..."
-                    for (m in modules) {
-                        echo "✅ Running Terraform for module: ${m}"
-                        // Here you could do:
-                        // sh "terraform apply -var-file=configs/${m}-${env.ENV}.tfvars"
+                    for (mod in modules) {
+                        echo "📦 Initializing Terraform module: ${mod}"
+                        dir("modules/${mod}") {
+                            sh 'terraform init -input=false'
+                        }
                     }
                 }
             }
         }
 
-        stage('Run Deployment') {
+        stage('Terraform Plan') {
             steps {
                 script {
-                    echo "🚀 Deploying infrastructure in ${env.REGION} with instance type ${env.INSTANCE}"
-                    // Example: sh "terraform apply -var region=${env.REGION} -var instance_type=${env.INSTANCE}"
+                    def modules = new groovy.json.JsonSlurper().parseText(readFile('config.json')).modules
+                    for (mod in modules) {
+                        echo "📝 Planning Terraform module: ${mod}"
+                        dir("modules/${mod}") {
+                            sh """
+                                terraform plan \\
+                                  -var='region=${env.REGION}' \\
+                                  -var='instance_type=${env.INSTANCE}' \\
+                                  -var='key_name=${env.KEY_NAME}' \\
+                                  -var='owner=${env.OWNER}' \\
+                                  -out=tfplan
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                input message: 'Proceed with apply?', ok: 'Yes, deploy'
+
+                script {
+                    def modules = new groovy.json.JsonSlurper().parseText(readFile('config.json')).modules
+                    for (mod in modules) {
+                        echo "🚀 Applying Terraform module: ${mod}"
+                        dir("modules/${mod}") {
+                            sh 'terraform apply -auto-approve tfplan'
+                        }
+                    }
                 }
             }
         }
