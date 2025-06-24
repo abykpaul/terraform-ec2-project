@@ -4,41 +4,29 @@ pipeline {
     agent any
 
     stages {
-        stage('Parse JSON Config') {
+        stage('Terraform Deploy by Module') {
             steps {
                 script {
-                    // ✅ Correct path to config.json
+                    // ✅ Read and parse within same block
                     def jsonFile = readFile('jenkins_terraform_json_pipeline/config.json')
                     def jsonObj = new JsonSlurper().parseText(jsonFile)
 
-                    echo "🔍 ENV: ${jsonObj.env}"
-                    echo "🌍 REGION: ${jsonObj.region}"
+                    def modules = jsonObj.modules
+                    def instance_type = jsonObj.instance_type
+                    def key_name = jsonObj.key_name
+                    def owner = jsonObj.owner
 
-                    // Example: loop through modules (if present)
-                    jsonObj.modules.each { moduleName ->
-                        echo "📦 Module to deploy: ${moduleName}"
-                    }
-                }
-            }
-        }
-
-        stage('Terraform Apply Modules') {
-            steps {
-                script {
-                    def jsonFile = readFile('jenkins_terraform_json_pipeline/config.json')
-                    def jsonObj = new JsonSlurper().parseText(jsonFile)
-
-                    jsonObj.modules.each { moduleName ->
+                    modules.each { moduleName ->
+                        def modulePath = "jenkins_terraform_json_pipeline/modules/${moduleName}"
                         echo "🔧 Processing module: ${moduleName}"
 
-                        def modulePath = "jenkins_terraform_json_pipeline/modules/${moduleName}"
                         if (fileExists("${modulePath}/main.tf")) {
-                            dir("${modulePath}") {
+                            dir(modulePath) {
                                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                                     withEnv([
-                                        "TF_VAR_instance_type=${jsonObj.instance_type}",
-                                        "TF_VAR_key_name=${jsonObj.key_name}",
-                                        "TF_VAR_owner=${jsonObj.owner}"
+                                        "TF_VAR_instance_type=${instance_type}",
+                                        "TF_VAR_key_name=${key_name}",
+                                        "TF_VAR_owner=${owner}"
                                     ]) {
                                         bat "terraform init"
                                         bat "terraform apply -auto-approve"
@@ -56,7 +44,7 @@ pipeline {
 
     post {
         always {
-            echo "📦 Pipeline completed for ENV: ${params.ENV ?: 'dev'}"
+            echo "✅ Pipeline Finished"
         }
     }
 }
