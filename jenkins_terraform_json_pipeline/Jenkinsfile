@@ -4,29 +4,29 @@ pipeline {
     agent any
 
     stages {
-        stage('Terraform Deployment') {
+        stage('Terraform Loop Apply') {
             steps {
                 script {
-                    // 🟢 Parse config file
-                    def jsonText = readFile 'jenkins_terraform_json_pipeline/config.json'
-                    def parsed = new JsonSlurper().parseText(jsonText)
+                    // ✅ Step 1: Parse JSON once
+                    def json = new JsonSlurper().parseText(readFile('jenkins_terraform_json_pipeline/config.json'))
 
-                    // 🟢 Convert to serializable values (no LazyMap used outside script block)
-                    def moduleList = parsed.modules.collect { it.toString() }  // ArrayList<String>
-                    def instance_type = parsed.instance_type.toString()
-                    def key_name = parsed.key_name.toString()
-                    def owner = parsed.owner.toString()
+                    // ✅ Step 2: Extract ONLY serializable variables
+                    def modules = json.modules.collect { it.toString() }              // List<String>
+                    def instance_type = json.instance_type.toString()
+                    def key_name = json.key_name.toString()
+                    def owner = json.owner.toString()
 
-                    // 🟢 Loop over modules with plain strings only
-                    for (String module : moduleList) {
+                    // ✅ Step 3: Loop over module names (Strings only)
+                    for (String module : modules) {
+                        def path = "jenkins_terraform_json_pipeline/modules/${module}"
+                        echo "🚀 Running Terraform for module: ${module}"
+
+                        // Set terraform vars as environment strings
                         def tfVars = [
                             "TF_VAR_instance_type=${instance_type}",
                             "TF_VAR_key_name=${key_name}",
                             "TF_VAR_owner=${owner}"
                         ]
-
-                        def path = "jenkins_terraform_json_pipeline/modules/${module}"
-                        echo "⚙️ Running Terraform for module: ${module}"
 
                         dir(path) {
                             catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
