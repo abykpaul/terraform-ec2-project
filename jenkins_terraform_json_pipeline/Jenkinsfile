@@ -7,28 +7,26 @@ pipeline {
         stage('Terraform Deploy') {
             steps {
                 script {
-                    // ✅ Step 1: Parse and extract from config.json
-                    def configFile = readFile 'jenkins_terraform_json_pipeline/config.json'
-                    def parsed = new JsonSlurper().parseText(configFile)
+                    // ✅ Parse config.json
+                    def configText = readFile 'jenkins_terraform_json_pipeline/config.json'
+                    def jsonMap = new JsonSlurper().parseText(configText)
 
-                    // ✅ Step 2: Extract primitives (avoid LazyMap)
-                    def modules = parsed.modules.collect { it.toString() }
-                    def instanceType = parsed.instance_type.toString()
-                    def keyName = parsed.key_name.toString()
-                    def owner = parsed.owner.toString()
+                    // ✅ Extract as plain values (no LazyMap used outside)
+                    def modules = jsonMap.modules.collect { it.toString() }
+                    def tfVars = [
+                        "TF_VAR_instance_type=${jsonMap.instance_type}",
+                        "TF_VAR_key_name=${jsonMap.key_name}",
+                        "TF_VAR_owner=${jsonMap.owner}"
+                    ]
 
-                    // ✅ Step 3: Loop through modules
-                    for (moduleName in modules) {
-                        def modulePath = "jenkins_terraform_json_pipeline/modules/${moduleName}"
-                        echo "🔧 Running module: ${moduleName}"
+                    // ✅ Loop through each module and apply
+                    for (String module in modules) {
+                        def path = "jenkins_terraform_json_pipeline/modules/${module}"
+                        echo "🚀 Deploying Terraform module: ${module}"
 
-                        dir(modulePath) {
+                        dir(path) {
                             catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                                withEnv([
-                                    "TF_VAR_instance_type=${instanceType}",
-                                    "TF_VAR_key_name=${keyName}",
-                                    "TF_VAR_owner=${owner}"
-                                ]) {
+                                withEnv(tfVars) {
                                     bat "terraform init"
                                     bat "terraform apply -auto-approve"
                                 }
@@ -42,7 +40,7 @@ pipeline {
 
     post {
         always {
-            echo "✅ Pipeline completed."
+            echo "✅ All steps completed!"
         }
     }
 }
