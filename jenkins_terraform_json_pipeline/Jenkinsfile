@@ -4,23 +4,23 @@ pipeline {
     agent any
 
     stages {
-        stage('Read Config and Deploy') {
+        stage('Terraform Deploy') {
             steps {
                 script {
-                    def configRaw = readFile('jenkins_terraform_json_pipeline/config.json')
-                    def jsonObj = new JsonSlurper().parseText(configRaw)
+                    // ✅ Step 1: Parse and extract from config.json
+                    def configFile = readFile 'jenkins_terraform_json_pipeline/config.json'
+                    def parsed = new JsonSlurper().parseText(configFile)
 
-                    // ✅ Extract values immediately
-                    def modules = jsonObj.modules.collect { it.toString() }
-                    def instanceType = jsonObj.instance_type.toString()
-                    def keyName = jsonObj.key_name.toString()
-                    def owner = jsonObj.owner.toString()
+                    // ✅ Step 2: Extract primitives (avoid LazyMap)
+                    def modules = parsed.modules.collect { it.toString() }
+                    def instanceType = parsed.instance_type.toString()
+                    def keyName = parsed.key_name.toString()
+                    def owner = parsed.owner.toString()
 
-                    // ❗ Do NOT use `jsonObj` after this point
-
-                    modules.each { moduleName ->
+                    // ✅ Step 3: Loop through modules
+                    for (moduleName in modules) {
                         def modulePath = "jenkins_terraform_json_pipeline/modules/${moduleName}"
-                        echo "🔧 Processing module: ${moduleName}"
+                        echo "🔧 Running module: ${moduleName}"
 
                         dir(modulePath) {
                             catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
@@ -42,7 +42,7 @@ pipeline {
 
     post {
         always {
-            echo "✅ Pipeline Finished"
+            echo "✅ Pipeline completed."
         }
     }
 }
