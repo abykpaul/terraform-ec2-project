@@ -1,75 +1,57 @@
-import groovy.json.JsonSlurper
-
 pipeline {
     agent any
 
     environment {
-        TF_PLUGIN_CACHE_DIR = "C:\\TerraformPluginCache"
-        TF_FLAGS = "-var 'instance_type=t2.micro' -var 'key_name=My-Devops-Key' -var 'owner=jack'"
+        MODULE_DIR = 'jenkins_terraform_json_pipeline/modules'
+        TF_VAR_instance_type = 't2.micro'
+        TF_VAR_key_name = 'My-Devops-Key'
+        TF_VAR_owner = 'jack'
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Git Clone') {
             steps {
-                checkout scm
+                git url: 'https://github.com/your-username/your-repo.git', branch: 'main'
             }
         }
 
-        stage('Parse config.json') {
+        stage('Read Config') {
             steps {
                 script {
-                    def filePath = 'jenkins_terraform_json_pipeline/config.json'
-
-                    // ✅ Check if file exists
-                    if (!fileExists(filePath)) {
-                        error "❌ config.json file not found at: ${filePath}"
-                    }
-
-                    def jsonFile = readFile(filePath)
-                    def config = new JsonSlurper().parseText(jsonFile)
-
-                    // ✅ Validate required keys
-                    if (!config.env || !config.region || !config.modules) {
-                        error "❌ config.json must include 'env', 'region', and 'modules'"
-                    }
-
-                    // ✅ Assign values safely
-                    env.ENV = config.env.toString()
-                    env.REGION = config.region.toString()
-                    env.MODULES = config.modules.join(',')
-
-                    echo "✅ ENV: ${env.ENV}"
+                    def config = readFile('config.json')
+                    def json = new groovy.json.JsonSlurper().parseText(config)
+                    env.ENV = json.env
+                    env.REGION = json.region
+                    echo "🔍 ENV: ${env.ENV}"
                     echo "🌍 REGION: ${env.REGION}"
-                    echo "📦 MODULES: ${env.MODULES}"
                 }
             }
         }
 
-        stage('Terraform Modules Apply') {
+        stage('Terraform Apply per Module') {
             steps {
                 script {
-                    def modules = env.MODULES.split(',')
+                    def modules = ['vpc', 'ec2', 'rds']  // update as per your structure
 
-                    modules.each { mod ->
-                        echo "🔧 Processing module: ${mod}"
+                    modules.each { module ->
+                        echo "🔧 Processing module: ${module}"
+                        def modulePath = "${MODULE_DIR}/${module}"
 
-                        def modulePath = "jenkins_terraform_json_pipeline\\modules\\${mod}"
-
-                        // ✅ Ensure module folder and main.tf exists
                         if (fileExists("${modulePath}/main.tf")) {
                             dir(modulePath) {
                                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                                    withEnv(["TF_PLUGIN_CACHE_DIR=${env.TF_PLUGIN_CACHE_DIR}"]) {
-                                        bat """
-                                            echo Running terraform in: ${modulePath}
-                                            terraform init
-                                            terraform apply ${env.TF_FLAGS} -auto-approve
-                                        """
+                                    withEnv([
+                                        "TF_VAR_instance_type=${env.TF_VAR_instance_type}",
+                                        "TF_VAR_key_name=${env.TF_VAR_key_name}",
+                                        "TF_VAR_owner=${env.TF_VAR_owner}"
+                                    ]) {
+                                        bat 'terraform init'
+                                        bat 'terraform apply -auto-approve'
                                     }
                                 }
                             }
                         } else {
-                            echo "⚠️ Skipping module '${mod}' — main.tf not found in ${modulePath}"
+                            echo "⚠️ Skipping ${module} — no Terraform config found"
                         }
                     }
                 }
