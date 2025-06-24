@@ -4,37 +4,33 @@ pipeline {
     agent any
 
     stages {
-        stage('Terraform Deploy by Module') {
+        stage('Deploy Modules') {
             steps {
                 script {
-                    // ✅ Read and parse within same block
-                    def jsonFile = readFile('jenkins_terraform_json_pipeline/config.json')
-                    def jsonObj = new JsonSlurper().parseText(jsonFile)
+                    // ✅ Read & extract only values; DO NOT keep LazyMap outside
+                    def configText = readFile('jenkins_terraform_json_pipeline/config.json')
+                    def config = new JsonSlurper().parseText(configText)
 
-                    def modules = jsonObj.modules
-                    def instance_type = jsonObj.instance_type
-                    def key_name = jsonObj.key_name
-                    def owner = jsonObj.owner
+                    def modules = config.modules
+                    def instanceType = config.instance_type.toString()
+                    def keyName = config.key_name.toString()
+                    def owner = config.owner.toString()
 
                     modules.each { moduleName ->
+                        echo "🔧 Deploying Module: ${moduleName}"
                         def modulePath = "jenkins_terraform_json_pipeline/modules/${moduleName}"
-                        echo "🔧 Processing module: ${moduleName}"
 
-                        if (fileExists("${modulePath}/main.tf")) {
-                            dir(modulePath) {
-                                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                                    withEnv([
-                                        "TF_VAR_instance_type=${instance_type}",
-                                        "TF_VAR_key_name=${key_name}",
-                                        "TF_VAR_owner=${owner}"
-                                    ]) {
-                                        bat "terraform init"
-                                        bat "terraform apply -auto-approve"
-                                    }
+                        dir(modulePath) {
+                            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                                withEnv([
+                                    "TF_VAR_instance_type=${instanceType}",
+                                    "TF_VAR_key_name=${keyName}",
+                                    "TF_VAR_owner=${owner}"
+                                ]) {
+                                    bat "terraform init"
+                                    bat "terraform apply -auto-approve"
                                 }
                             }
-                        } else {
-                            echo "⚠️ main.tf not found for module: ${moduleName}"
                         }
                     }
                 }
@@ -44,7 +40,7 @@ pipeline {
 
     post {
         always {
-            echo "✅ Pipeline Finished"
+            echo "📦 Pipeline completed"
         }
     }
 }
