@@ -11,7 +11,7 @@ pipeline {
     stages {
         stage('Git Clone') {
             steps {
-                git url: 'https://github.com/your-username/your-repo.git', branch: 'main'
+                git url: 'https://github.com/abykpaul/terraform-ec2-project.git', branch: 'main'
             }
         }
 
