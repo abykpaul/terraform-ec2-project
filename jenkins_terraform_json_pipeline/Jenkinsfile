@@ -4,25 +4,29 @@ pipeline {
     agent any
 
     stages {
-        stage('Terraform Deploy') {
+        stage('Terraform Deployment') {
             steps {
                 script {
-                    // ✅ Parse config.json
-                    def configText = readFile 'jenkins_terraform_json_pipeline/config.json'
-                    def jsonMap = new JsonSlurper().parseText(configText)
+                    // 🟢 Parse config file
+                    def jsonText = readFile 'jenkins_terraform_json_pipeline/config.json'
+                    def parsed = new JsonSlurper().parseText(jsonText)
 
-                    // ✅ Extract as plain values (no LazyMap used outside)
-                    def modules = jsonMap.modules.collect { it.toString() }
-                    def tfVars = [
-                        "TF_VAR_instance_type=${jsonMap.instance_type}",
-                        "TF_VAR_key_name=${jsonMap.key_name}",
-                        "TF_VAR_owner=${jsonMap.owner}"
-                    ]
+                    // 🟢 Convert to serializable values (no LazyMap used outside script block)
+                    def moduleList = parsed.modules.collect { it.toString() }  // ArrayList<String>
+                    def instance_type = parsed.instance_type.toString()
+                    def key_name = parsed.key_name.toString()
+                    def owner = parsed.owner.toString()
 
-                    // ✅ Loop through each module and apply
-                    for (String module in modules) {
+                    // 🟢 Loop over modules with plain strings only
+                    for (String module : moduleList) {
+                        def tfVars = [
+                            "TF_VAR_instance_type=${instance_type}",
+                            "TF_VAR_key_name=${key_name}",
+                            "TF_VAR_owner=${owner}"
+                        ]
+
                         def path = "jenkins_terraform_json_pipeline/modules/${module}"
-                        echo "🚀 Deploying Terraform module: ${module}"
+                        echo "⚙️ Running Terraform for module: ${module}"
 
                         dir(path) {
                             catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
@@ -35,12 +39,6 @@ pipeline {
                     }
                 }
             }
-        }
-    }
-
-    post {
-        always {
-            echo "✅ All steps completed!"
         }
     }
 }
