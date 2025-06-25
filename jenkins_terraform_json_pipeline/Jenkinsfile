@@ -1,83 +1,75 @@
+import groovy.json.JsonSlurper
+
 pipeline {
     agent any
 
     environment {
-        ENV         = ''
-        REGION      = ''
-        INSTANCE    = ''
-        KEY_NAME    = ''
-        OWNER       = ''
+        TF_PLUGIN_CACHE_DIR = "C:\\TerraformPluginCache"
+        TF_FLAGS = "-var 'instance_type=t2.micro' -var 'key_name=My-Devops-Key' -var 'owner=jack'"
     }
 
     stages {
+        stage('Checkout Code') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Read JSON Config') {
             steps {
                 script {
-                    def json = readFile('config.json')
-                    def config = new groovy.json.JsonSlurper().parseText(json)
+                    def jsonPath = 'config.json' // ✅ Update if it's inside a subfolder
+                    if (fileExists(jsonPath)) {
+                        def jsonFile = readFile(jsonPath)
+                        def config = new JsonSlurper().parseText(jsonFile)
 
-                    // Export values as environment variables
-                    env.ENV      = config.env
-                    env.REGION   = config.region
-                    env.INSTANCE = config.vars.instance_type
-                    env.KEY_NAME = config.vars.key_name
-                    env.OWNER    = config.vars.owner
+                        env.ENV = config.env
+                        env.REGION = config.region
+                        env.MODULES = config.modules.join(',')  // Convert list to comma-separated string
 
-                    // Modules list for next stage (store in global scope variable)
-                    modulesList = config.modules
-                }
-            }
-        }
-
-        stage('Terraform Init') {
-            steps {
-                script {
-                    def modules = new groovy.json.JsonSlurper().parseText(readFile('config.json')).modules
-                    for (mod in modules) {
-                        echo "📦 Initializing Terraform module: ${mod}"
-                        dir("modules/${mod}") {
-                            sh 'terraform init -input=false'
-                        }
+                        echo "✅ ENV: ${env.ENV}"
+                        echo "🌍 REGION: ${env.REGION}"
+                        echo "📦 MODULES: ${env.MODULES}"
+                    } else {
+                        error "❌ config.json not found at path: ${jsonPath}"
                     }
                 }
             }
         }
 
-        stage('Terraform Plan') {
+        stage('Terraform Init/Apply for Modules') {
             steps {
                 script {
-                    def modules = new groovy.json.JsonSlurper().parseText(readFile('config.json')).modules
-                    for (mod in modules) {
-                        echo "📝 Planning Terraform module: ${mod}"
-                        dir("modules/${mod}") {
-                            sh """
-                                terraform plan \\
-                                  -var='region=${env.REGION}' \\
-                                  -var='instance_type=${env.INSTANCE}' \\
-                                  -var='key_name=${env.KEY_NAME}' \\
-                                  -var='owner=${env.OWNER}' \\
-                                  -out=tfplan
-                            """
+                    def modules = env.MODULES.split(',')
+
+                    modules.each { mod ->
+                        def modulePath = "jenkins_terraform_json_pipeline\\modules\\${mod}"
+                        echo "🔧 Processing module: ${mod}"
+
+                        if (fileExists("${modulePath}/main.tf")) {
+                            dir(modulePath) {
+                                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                                    withEnv(["TF_PLUGIN_CACHE_DIR=${env.TF_PLUGIN_CACHE_DIR}"]) {
+                                        bat """
+                                            echo 🚀 Running terraform init/apply in: ${modulePath}
+                                            terraform init
+                                            terraform apply ${env.TF_FLAGS} -auto-approve
+                                        """
+                                    }
+                                }
+                            }
+                        } else {
+                            echo "⚠️ Skipping ${mod} — main.tf not found in ${modulePath}"
                         }
                     }
                 }
             }
         }
+    }
 
-        stage('Terraform Apply') {
-            steps {
-                input message: 'Proceed with apply?', ok: 'Yes, deploy'
-
-                script {
-                    def modules = new groovy.json.JsonSlurper().parseText(readFile('config.json')).modules
-                    for (mod in modules) {
-                        echo "🚀 Applying Terraform module: ${mod}"
-                        dir("modules/${mod}") {
-                            sh 'terraform apply -auto-approve tfplan'
-                        }
-                    }
-                }
-            }
+    post {
+        always {
+            echo "✅ Pipeline completed for ENV: ${env.ENV}"
         }
     }
 }
