@@ -4,9 +4,9 @@ pipeline {
     agent any
 
     environment {
-        // Optional plugin cache for Terraform
-        TF_PLUGIN_CACHE_DIR = "C:\\TerraformPluginCache"
+        // Reusable Terraform flags – declared variables passed via CLI
         TF_FLAGS = "-var 'instance_type=t2.micro' -var 'key_name=My-Devops-Key' -var 'owner=jack'"
+        TF_PLUGIN_CACHE_DIR = "C:\\TerraformPluginCache"
     }
 
     stages {
@@ -19,24 +19,18 @@ pipeline {
         stage('Read JSON Config') {
             steps {
                 script {
-                    // ✅ Corrected path
-                    def jsonPath = 'jenkins_terraform_json_pipeline/config.json'
-                    
-                    if (fileExists(jsonPath)) {
-                        def jsonFile = readFile(jsonPath)
-                        def config = new JsonSlurper().parseText(jsonFile)
+                    def configFilePath = 'jenkins_terraform_json_pipeline/config.json'
 
-                        // Exporting to environment for future use
-                        env.ENV = config.env
-                        env.REGION = config.region
-                        env.MODULES = config.modules.join(',')
-
-                        echo "✅ ENV: ${env.ENV}"
-                        echo "🌍 REGION: ${env.REGION}"
-                        echo "📦 MODULES: ${env.MODULES}"
-                    } else {
-                        error "❌ config.json not found at path: ${jsonPath}"
+                    if (!fileExists(configFilePath)) {
+                        error "❌ config.json not found at path: ${configFilePath}"
                     }
+
+                    def jsonFile = readFile(configFilePath)
+                    def config = new JsonSlurper().parseText(jsonFile)
+
+                    env.ENV = config.env
+                    env.REGION = config.region
+                    env.MODULES = config.modules.join(',')  // comma separated
                 }
             }
         }
@@ -64,7 +58,7 @@ pipeline {
                                 }
                             }
                         } else {
-                            echo "⚠️ Skipping ${mod} — main.tf not found"
+                            echo "⚠️ Skipping ${mod} – main.tf not found"
                         }
                     }
                 }
