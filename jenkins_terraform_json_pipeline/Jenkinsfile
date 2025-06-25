@@ -4,6 +4,7 @@ pipeline {
     agent any
 
     environment {
+        // Optional plugin cache for Terraform
         TF_PLUGIN_CACHE_DIR = "C:\\TerraformPluginCache"
         TF_FLAGS = "-var 'instance_type=t2.micro' -var 'key_name=My-Devops-Key' -var 'owner=jack'"
     }
@@ -18,14 +19,17 @@ pipeline {
         stage('Read JSON Config') {
             steps {
                 script {
-                    def jsonPath = 'config.json' // ✅ Update if it's inside a subfolder
+                    // ✅ Corrected path
+                    def jsonPath = 'jenkins_terraform_json_pipeline/config.json'
+                    
                     if (fileExists(jsonPath)) {
                         def jsonFile = readFile(jsonPath)
                         def config = new JsonSlurper().parseText(jsonFile)
 
+                        // Exporting to environment for future use
                         env.ENV = config.env
                         env.REGION = config.region
-                        env.MODULES = config.modules.join(',')  // Convert list to comma-separated string
+                        env.MODULES = config.modules.join(',')
 
                         echo "✅ ENV: ${env.ENV}"
                         echo "🌍 REGION: ${env.REGION}"
@@ -43,15 +47,16 @@ pipeline {
                     def modules = env.MODULES.split(',')
 
                     modules.each { mod ->
-                        def modulePath = "jenkins_terraform_json_pipeline\\modules\\${mod}"
                         echo "🔧 Processing module: ${mod}"
+
+                        def modulePath = "jenkins_terraform_json_pipeline\\modules\\${mod}"
 
                         if (fileExists("${modulePath}/main.tf")) {
                             dir(modulePath) {
                                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                                     withEnv(["TF_PLUGIN_CACHE_DIR=${env.TF_PLUGIN_CACHE_DIR}"]) {
                                         bat """
-                                            echo 🚀 Running terraform init/apply in: ${modulePath}
+                                            echo Running terraform in: ${modulePath}
                                             terraform init
                                             terraform apply ${env.TF_FLAGS} -auto-approve
                                         """
@@ -59,7 +64,7 @@ pipeline {
                                 }
                             }
                         } else {
-                            echo "⚠️ Skipping ${mod} — main.tf not found in ${modulePath}"
+                            echo "⚠️ Skipping ${mod} — main.tf not found"
                         }
                     }
                 }
